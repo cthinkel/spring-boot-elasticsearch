@@ -4,9 +4,14 @@ import com.es.pc.esexample.service.FilingService;
 import com.es.pc.esexample.utils.FilingUtils;
 
 import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -83,8 +88,19 @@ public class ElasticSearchFilingManager {
         return filings;
     }
 
-    public void processCsv(List<String> result) {
+    public void processCsv(List<Map<String, String>> records) throws IOException {
         BulkRequest request = new BulkRequest();
 
+        for (Map<String, String> record : records) {
+            IndexRequest indexRequest = new IndexRequest(FILING_INDEX, FILING_TYPE).source(FilingUtils.toJSON(record), XContentType.JSON);
+            request.add(indexRequest);
+        }
+
+        request.timeout(TimeValue.timeValueMinutes(2));
+        request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        BulkResponse bulkResponse = restHighLevelClient.bulk(request);
+        if (bulkResponse.hasFailures()) {
+            System.out.println("bad news bears: " + bulkResponse.buildFailureMessage());
+        }
     }
 }
